@@ -9,6 +9,9 @@ The Braille view, overlayed, is scaled incorrectly, especially the vertical view
 ## Simple working braille display
 The Braille view, only braille, from working resource_lib code, correctly displayed.
 ![Incorrect Display](Docs/TurtleBraille_braille_win_good.PNG)
+
+## Problem
+Somewhere in the new code we are scalling incorrectly.  Just to get the display to position for viewing I had to hack the Turtle goto function as shown in the code snippet below.  If I could think of a way to make the code smaller I would send it to something like ***stackoverflow*** and pose the question.
 ### Code Snippet
 ```
         
