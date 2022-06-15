@@ -1,7 +1,7 @@
 # TurtleBraille
 Migrating from resource_lib/turtle_braille/ to Canvas "Scraping" to generate Braille from intercepting each Turtle command and building as set of points to convert.  The rationalle is to avoid an intimite understanding of each Turtle command and its translation into tkinter commands.
 # NOTE - in construction
-Not functional yet - scalling problems
+Not functional yet - scaling problems
 ## Example
 ## Simple Turtle Display with braille display overlay - erroneous Braille view
 The Braille view, overlayed, is scaled incorrectly, especially the vertical view is flipped.
@@ -11,7 +11,7 @@ The Braille view, only braille, from working resource_lib code, correctly displa
 ![Incorrect Display](Docs/TurtleBraille_braille_win_good.PNG)
 
 ## Problem
-Somewhere in the new code we are scalling incorrectly.  Just to get the display to position for viewing I had to hack the Turtle goto function as shown in the code snippet below.  If I could think of a way to make the code smaller I would send it to something like ***stackoverflow*** and pose the question.
+Somewhere in the new code we are scaling incorrectly.  Just to get the display to position for viewing I had to hack the Turtle goto function as shown in the code snippet below.  If I could think of a way to make the code smaller I would send it to something like ***stackoverflow*** and pose the question.
 ### Code Snippet
 ```
         
