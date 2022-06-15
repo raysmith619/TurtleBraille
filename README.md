@@ -3,6 +3,12 @@ Migrating from resource_lib/turtle_braille/ to Canvas "Scraping" to generate Bra
 # NOTE - in construction
 Not functional yet - scalling problems
 ## Example
+## Simple Turtle Display with braille display overlay - erroneous Braille view
+The Braille view, overlayed, is scaled incorrectly, especially the vertical view is flipped.
+![Incorrect Display](Docs/TurtleBraille_combo_err.PNG)
+## Simple working braille display
+The Braille view, only braille, from working resource_lib code, correctly displayed.
+![Incorrect Display](Docs/TurtleBraille_braille_win_good.PNG)
 ### Code Snippet
 ```
         
@@ -23,6 +29,6 @@ class BrailleDisplay:
         x += self.x_max/2 + 10*(self.cell_xs[1]-self.cell_xs[0])  # HACK to position viewing
         y -= (self.y_max/2 + 4*(self.cell_ys[1]-self.cell_ys[0])) # HACK to position viewing
         self.rtu.goto(x,y)
+```
 
 
-![Incorrect Display](Docs/TurtleBraille_combo_err.PNG)
