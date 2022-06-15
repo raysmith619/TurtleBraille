@@ -3,3 +3,4 @@ Migrating from resource_lib/turtle_braille/ to Canvas "Scraping" to generate Bra
 # NOTE - in construction
 Not functional yet - scalling problems
 ## Exaple
+![Incorrect Display](Docs/TurtleBraille_combo_err.PNG)
