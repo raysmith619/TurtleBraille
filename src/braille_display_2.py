@@ -15,7 +15,7 @@ import turtle as tu
 import tkinter as tk
 
 from select_trace import SlTrace
-from Lib.pickle import NONE
+from canvas_view import CanvasView  # Extended item viewing
 
 def pl(point_list):
     """ display routine for point list
@@ -43,23 +43,29 @@ def pl(point_list):
 class BrailleCell:
     """ braille cell info augmented for analysis
     """
-    def __init__(self, dots=None,
+    def __init__(self, bd, dots=None,
                  color=None, color_bg=None,
                  ix=0, iy=0,
-                 points=None):
+                 points=None,
+                 canvas_id=None):
         """ setup braille cell
+        :bd: BrailleDisplay object
         :dots: list of set dots default: none - blank
         :color: color str or tuple
         :ix: cell index(from 0) from left side
         :iy: cell index from bottom
         :points: initial set of points, if any
             default: empty
+        :canvas_id: Canvas id if any
         """
+        self.bd = bd
         self.ix = ix    # Include to make self sufficient
         self.iy = iy
         self.dots = dots
         if color is None:
             color = "black"
+        self._color = color
+        
         if color_bg is None: 
             color_bg = "white"
         self._color = color
@@ -68,7 +74,19 @@ class BrailleCell:
             points = set()
         self.points = points 
         self._fill_perimiter_points = []
-        
+        self.canvas_id = canvas_id
+
+    def __str__(self):
+        ix = self.ix
+        iy = self.iy
+        st = f"BCell: [{ix},{iy}]"
+        st += f" {self.canvas_id}"
+        st += f" {self._color}"
+        cx1,cy1,cx2,cy2 = self.bd.get_cell_ullr_win(ix=ix, iy=iy)
+        st += f" [ul:{cx1},{cy1} lr:{cx2},{cy2}]"
+
+        return st 
+    
     def color_str(self, color=None):
         """ Return color string
         :color: color specification str or tuple
@@ -85,7 +103,109 @@ class BrailleCell:
             else:
                 color_str = "pink"  # TBD - color tuple work
         return color_str
+
+    
+    def display(self, canvas=None, show_points=False,
+                offset_xy=None):
+        """ Display cell
+        :canvas: canvas on wich to display the cell
+                default: self.tk_canvas
+        :show_points: show points instead of braille
+                default: False --> show braille dots
+        :offset_xy: display offset (HACK)
+                    default: No offset
+        """
+        ix = self.ix
+        iy = self.iy
+        SlTrace.lg(f"cell.display: {self}")
+ 
+        if canvas is None:
+            canvas = self.bd.braille_canvas
+        cx1,cy1,cx2,cy2 = self.bd.get_cell_ullr_win_disp(ix=ix, iy=iy)
+        if offset_xy is not None:
+            offx, offy = offset_xy
+            cx1 += offx
+            cx2 += offx
+            cy1 += offy
+            cy2 += offy
+        canvas.create_rectangle(cx1,cy1,cx2,cy2,
+                                tags=self.bd.annotate_tag)
+        color = self._color
+        if color is None:
+            color = self.bd._color
+        color = self.bd.color_str(color)
+        if show_points:
+            dot_size = 1            # Display cell points
+            dot_radius = dot_size//2
+            if dot_radius < 1:
+                dot_radius = 1
+                dot_size = 2
+            for pt in self.points:
+                dx,dy = self.bd.cvt_tur_pt_to_win(pt)
+                x0 = dx-dot_radius
+                y0 = dy+dot_size 
+                x1 = dx+dot_radius 
+                y1 = dy
+                canvas.create_oval(x0,y0,x1,y1, fill=color,
+                                                tags=self.bd.annotate_tag)
+            return
+            
+        dots = self.dots
+        grid_width = cx2-cx1
+        grid_height = cy1-cy2       # y increases down
+        # Fractional offsets from lower left corner
+        # of cell rectangle
+        ox1 = ox2 = ox3 = .3 
+        ox4 = ox5 = ox6 = .7
+        oy1 = oy4 = .15
+        oy2 = oy5 = .44
+        oy3 = oy6 = .73
+        dot_size = .25*grid_width   # dot size fraction
+        dot_radius = dot_size//2
+        dot_offset = {1: (ox1,oy1), 4: (ox4,oy4),
+                      2: (ox2,oy2), 5: (ox5,oy5),
+                      3: (ox3,oy3), 6: (ox6,oy6),
+                      }
+        ll_x = cx1      # Lower left corner
+        ll_y = cy2 - dot_size*.20
         
+        for dot in dots:
+            offsets = dot_offset[dot]
+            off_x_f, off_y_f = offsets
+            dx = ll_x + off_x_f*grid_width
+            dy = ll_y + off_y_f*grid_height
+            x0 = dx-dot_radius
+            y0 = dy+dot_size 
+            x1 = dx+dot_radius 
+            y1 = dy
+            show_dots = True
+            if SlTrace.trace("show_id"):
+                if (self.ix+self.iy)%2==10:     # 10 -> disable
+                    show_dots = False    # view better
+            if show_dots:
+                canvas.create_oval(x0,y0,x1,y1, fill=color, 
+                                tags=self.bd.annotate_tag)
+        
+        if SlTrace.trace("show_id"):
+            if self.canvas_id is not None:
+                cl_x = cx2-dot_size
+                cl_y = cy1-dot_size
+                canvas.create_text(cl_x,cl_y, text=f"{self.canvas_id}",
+                                   tags=self.bd.annotate_tag)
+                cl_x = cx1+2.1*dot_size
+                cl_y = cl_y + 2.0*dot_size
+                canvas.create_text(cl_x,cl_y,
+                                   text=f"{self.ix},",
+                                   tags=self.bd.annotate_tag)
+                cl_x += dot_size*.5
+                cl_y += dot_size*.5
+                canvas.create_text(cl_x,cl_y,
+                                   text=f"{self.iy}",
+                                   tags=self.bd.annotate_tag)
+                self.bd.dbg_count += 1
+                ###if self.bd.dbg_count > 4:
+                ###    self.bd.mainloop()    # So we can see it now 
+
         
 class BrailleDisplay:
     """ Create and display graphics using Braille
@@ -122,17 +242,22 @@ class BrailleDisplay:
     
     
     def __init__(self, title="Braille Display",
+                 mw=None,
                  canvas=None,
                  win_width=800, win_height=800,
                  grid_width=40, grid_height=25,
                  use_full_cells= True,
                  x_min=None, y_min=None,
+                 x_max=None, y_max=None,
                  line_width=1, color="black",
                  color_bg = None,
                  color_fill = None,
-                 point_resolution=None):
+                 point_resolution=None,
+                 turtle_visible=False):
         """ Setup display
         :title: display screen title
+        :mw: main window
+                default: create window
         :canvas: tkinter.Canvas instance
             default: create one
         :win_width: display window width in pixels
@@ -154,6 +279,8 @@ class BrailleDisplay:
             default: True - use full cells
         :x_min: x value for left side default: -win_width/2
         :y_min:  y value for bottom default: -win_height/2
+        :x_max: x value for right side default: y_min+win_height
+        :y_max:  y value for top default: y_min+win_height
         :line_width: line width
         :point_resolution: Distance between points below
             with, no difference is recognized
@@ -161,17 +288,21 @@ class BrailleDisplay:
                     between connected points
                     conservative to simplify/speed
                     computation
+        :turtle_visible: initial turtle visiblility
+            default: False - don't show turtle
         """
         if title is None:
             title = "Braille Display"
         self.title = title
+        if mw is None:
+            mw = tk.Tk()
+            mw.withdraw()
+            mw.geometry(f"{win_width}x{win_height}")
+        self.mw = mw
         self.win_width = win_width
         self.win_height = win_height
         if canvas is None:
-            mw = tk.Tk()
-            mw.withdraw()
-            mw.geometry("800x800")
-            canvas = tk.Canvas(mw)
+            canvas = CanvasView(mw)
             canvas.pack(expand=1, fill='both')
         screen = tu.TurtleScreen(canvas)
         #screen.screensize(win_width,win_height)
@@ -191,17 +322,25 @@ class BrailleDisplay:
         self.point_resolution = point_resolution
         self.use_full_cells = use_full_cells
         if x_min is None:
-            x_min = -win_width/2
+            x_min = int(-win_width/2)
         self.x_min = x_min
-        self.x_max = x_min + win_width
+        if x_max is None:
+            if isinstance(x_min,float) and x_min < 0:
+                x_max = -x_min
+            else:
+                x_max = x_min + win_width
+        self.x_max = x_max
         if y_min is None:
-            y_min = -win_height/2
+            y_min = -win_height//2
         self.y_min = y_min
-        self.y_max = y_min + win_height
-        '''
-        screen.setworldcoordinates(llx=self.x_min, lly=self.y_min,
-                                   urx=self.x_max, ury=self.y_max)
-        '''
+        if y_max is None:
+            if isinstance(y_min,float) and y_min < 0:
+                y_max = -y_min
+            else:
+                x_max = x_min + win_width
+        self.y_max = y_max
+        screen.setworldcoordinates(llx=x_min, lly=y_min,
+                                   urx=x_max, ury=y_max)
         self.line_width = line_width
         self._color = color
         if self._color is not None:
@@ -221,12 +360,18 @@ class BrailleDisplay:
         self.angle = 0          # degrees (angle)
         self.pt = self.p2 = (self.x, self.y)
 
+        if turtle_visible:
+            self.showturtle()
+        else:
+            self.hideturtle()
+            
         self.is_pendown = True 
         self.is_filling = False
         self.tracking_show_item_id = 0
         self.tk_item_samples = {}   # sample canvas items
                                     # for abbreviation
         self.annotate_tag = "ANN"   # Annotation flag for canvas
+        self.dbg_count = 0          # TFD counting
         
     def set_cell_lims(self):
         """ create cell window(canvas) bottom values through top
@@ -238,19 +383,15 @@ class BrailleDisplay:
         self.cell_xs = []
         self.cell_ys = []
 
-        for i in range(self.grid_width):
+        for i in range(self.grid_width+1):
             w_x = int(i*self.win_width/self.grid_width)
             self.cell_xs.append(w_x)
             SlTrace.lg(f"cell_xs[{i}] = {w_x}")
-        self.cell_xs.append(self.win_width) # right edge
-        SlTrace.lg(f"cell_xs[{i+1}] = {self.win_width}")
         
-        for i in range(self.grid_height):
+        for i in range(self.grid_height+1):
             w_y = int(i*self.win_height/self.grid_height)
             SlTrace.lg(f"cell_ys[{i}] = {w_y}")
             self.cell_ys.append(w_y)
-        self.cell_ys.append(self.win_height)    # bottom edge
-        SlTrace.lg(f"cell_ys[{i+1}] = {self.win_height}")
         
     def add_dot(self, size=None, *color):
         """ Add new point
@@ -461,7 +602,7 @@ class BrailleDisplay:
 
     def update_cell(self, braille_cells=None,
                     ix=None, iy=None, pt=None,
-                    color=None, canvas_item=None):
+                    color=None, canvas_id=None):
         """ Add / update cell
             if the cell is already present it is updated:
                 pt, if present is added
@@ -495,8 +636,9 @@ class BrailleDisplay:
         if cell_ixiy in braille_cells:
             cell = braille_cells[cell_ixiy]
         else:
-            cell = BrailleCell(ix=cell_ixiy[0],
-                        iy=cell_ixiy[1], color=color)
+            cell = BrailleCell(self, ix=cell_ixiy[0],
+                        iy=cell_ixiy[1], color=color,
+                        canvas_id = canvas_id)
             braille_cells[cell_ixiy] = cell
         if pt is not None:
             cell.points.add(pt) 
@@ -505,7 +647,8 @@ class BrailleDisplay:
             cell._color = color
             dots = self.braille_for_color(color)
             cell.dots = dots
-        cell.canvas_item = canvas_item      # Remember last canvas item
+        if cell.canvas_id is None:
+            cell.canvas_id = canvas_id      # Remember first canvas item
         return cell
                 
     def get_dot_points(self, pt, size=None):
@@ -915,7 +1058,7 @@ class BrailleDisplay:
         if color is None:
             color = self._color
         dots = self.braille_for_color(color)
-        bc = BrailleCell(ix=cell[0],iy=cell[1], dots=dots, color=color)
+        bc = BrailleCell(self, ix=cell[0],iy=cell[1], dots=dots, color=color)
         self.cells[cell] = bc
 
     def display_braille_window(self, title, show_points=False):
@@ -930,16 +1073,20 @@ class BrailleDisplay:
         mw.title(title)
         mw.geometry("800x800")
         self.braille_mw = mw
-        canvas = tk.Canvas(mw, width=self.win_width, height=self.win_height)
+        canvas = CanvasView(mw)
         canvas.pack(expand=1, fill='both')
+        SlTrace.lg(f"display_braille_window: {title}")
+        mw.update()     # Make visible
         self.braille_canvas = canvas
-        self.overlay_tk_window(canvas)
+        self.overlay_braille_window(dst_canvas=canvas)
+        '''
         for ix in range(self.grid_width):
             for iy in range(self.grid_height):
                 cell_ixy = (ix,iy)
                 if cell_ixy in self.cells:
-                    self.display_cell(self.cells[cell_ixy],
+                    self.cells[cell_ixy].display(canvas=canvas,
                                       show_points=show_points)
+        '''
         mw.update()     # Make visible
 
     def print_cells(self, title=None):
@@ -964,34 +1111,47 @@ class BrailleDisplay:
         """
         if canvas is None:
             canvas = self.rt_canvas
-        if prefix is None:
-            prefix = ""
-        self.tracking_show_item_id = item_id
-        iopts = canvas.itemconfig(item_id)
-        itype = canvas.type(item_id)
-        coords = canvas.coords(item_id)
-        if itype in self.tk_item_samples:
-            item_sample_iopts = self.tk_item_samples[itype]
-        else:
-            item_sample_iopts = None
-        SlTrace.lg(f"{prefix} {item_id}: {itype} {coords}")
-        for key in iopts:
-            val = iopts[key]
-            is_changed = True     # assume entry option changed
-            if item_sample_iopts is not None:
-                is_equal = True # Check for equal item option
-                sample_val = item_sample_iopts[key]
-                if len(val) == len(sample_val):
-                    for i in range(len(val)):
-                        if val[i] != sample_val[i]:
-                            is_equal = False
-                            break
-                    if is_equal:
-                        is_changed = False
-            if is_changed: 
-                SlTrace.lg(f"    {key} {val}")
-            self.tk_item_samples[itype] = iopts
+        canvas.show_canvas_item(item_id, prefix=prefix)
 
+    def find_overlapping(self, canvas, cx1,cy1,cx2,cy2,
+                          include_annotations=False):
+        """ Get canvas items (Canvas.get_overlapping)
+        :canvas: Canvas object - None ==> use self.rt_canvas
+        :cx1,cy1: rectangle upper left corner
+        :cx2,cy2: rectangle lower right corner
+        :include_annotations: include annotations
+                        default: False - ignore annotations
+        :returns: list of canvas items overlapping rectangle
+        """
+        if canvas is None:
+            canvas = self.rt_canvas
+        items_over_raw = canvas.find_overlapping(cx1,cy1,cx2,cy2)
+
+        if include_annotations:
+            items_over = items_over_raw
+        else:
+            items_over = []
+            annotated_items = canvas.find_withtag(self.annotate_tag)
+            annotated_set = set(annotated_items)
+            for item in items_over_raw:
+                if item in annotated_set:
+                    is_annotated = True 
+                else:
+                    is_annotated = False
+                SlTrace.lg(f"overlapping:{item} annotated:{is_annotated}")
+                if item not in annotated_set:
+                    item_type = canvas.type(item)
+                    fills = canvas.itemconfigure(item, 'fill')
+                    if fills[-1] == '':
+                        pass
+                    elif item_type == "text":
+                        pass
+                    else:
+                        items_over.append(item)
+        return items_over
+        
+
+        
     def populate_cells_from_canvas(self):
         """ populate cells covered by canvas objects
         """
@@ -999,26 +1159,53 @@ class BrailleDisplay:
         for ix in range(self.grid_width):
             for iy in range(self.grid_height):
                 cx1,cy1,cx2,cy2 = self.get_cell_ullr_win(ix=ix, iy=iy)
-                items_over = canvas.find_overlapping(cx1,cy1,cx2,cy2)
+                items_over = self.find_overlapping(canvas, cx1,cy1,cx2,cy2)
                 folp_str = f"ix:{ix}, iy:{iy} canvas.find_overlapping(cx1={cx1},cy1={cy1},cx2={cx2},cy2={cy2})"
                 if len(items_over) > 0:
                     top_item = items_over[-1]
-                    canvas_item = top_item
-                    itype = canvas.type(canvas_item)
+                    canvas_id = top_item
+                    itype = canvas.type(canvas_id)
                     if False and itype != "line": # TFD
                         continue
-                    color_tuple = canvas.itemconfigure(canvas_item, "fill")
+                    prefix = f"overlap:[{ix},{iy}]: {cx1},{cy1},{cx2},{cy2}"
+                    self.show_canvas_item(canvas_id, prefix=prefix)
+                    color_tuple = canvas.itemconfigure(canvas_id, "fill")
                     color = color_tuple[-1]
                     if color == "":
                         color = self._color
                     point_win = (cx1+cx2)/2,(cy1+cy2)/2
                     point_tur = self.cvt_win_pt_to_tur(point_win)
-                    SlTrace.lg(f"{folp_str} item:{canvas_item} {color}")
+                    SlTrace.lg(f"{folp_str} item:{canvas_id} {color}")
+                    canvas_coords = canvas.coords(canvas_id)
                     SlTrace.lg(f"    point:{point_tur} color={color}"
-                               f" coords:{canvas.coords(canvas_item)}", "point")
-                    self.update_cell(pt=point_tur, color=color, canvas_item=canvas_item)
+                               f" coords:{canvas_coords}", "point")
+                    self.show_coords(canvas_coords)
+                    self.update_cell(pt=point_tur, color=color, canvas_id=canvas_id)
+                    
         SlTrace.lg(f"populate_cells(canvas): cells after: {len(self.cells)}", "xpoint")
 
+    def show_coords(self, canvas_coords):
+        if canvas_coords is None:
+            return 
+        if len(canvas_coords) == 0:
+            return
+        if len(canvas_coords) == 2:
+            cc_x1,cc_y1 = canvas_coords
+            tu_x1 = self.cvt_win_x_to_tur(cc_x1)
+            tu_y1 = self.cvt_win_y_to_tur(cc_y1)
+            cc_x2 = cc_y2 = ""
+            tu_x2 = tu_y2 = ""
+        elif len(canvas_coords) == 4:            
+            cc_x1,cc_y1, cc_x2,cc_y2 = canvas_coords
+            tu_x1 = self.cvt_win_x_to_tur(cc_x1)
+            tu_y1 = self.cvt_win_y_to_tur(cc_y1)
+            tu_x2 = self.cvt_win_x_to_tur(cc_x2)
+            tu_y2 = self.cvt_win_y_to_tur(cc_y2)
+        else:
+            return
+        SlTrace.lg(f"    win: x1:{cc_x1}, y1:{cc_y1} x2:{cc_x2}, y2:{cc_y2}", "point")
+        SlTrace.lg(f"    tur: x1:{tu_x1}, y1:{tu_y1} x2:{tu_x2}, y2:{tu_y2}", "point")
+        
     def print_tk_canvas_opts(self, canvas=None, title=None):
         """ log canvas options
         :canvas: Canvas object
@@ -1081,13 +1268,15 @@ class BrailleDisplay:
                     default: False
         """
         self.populate_cells_from_canvas()
-        if overlay_braille:
-            self.overlay_braille_window()
         if all or braille_window:
             tib = title
             if tib is not None and tib.endswith("-"):
                 tib += " Braille Window"
             self.display_braille_window(title=tib)
+        if overlay_braille:
+            offx = self.x_min
+            offy = self.y_min
+            self.overlay_braille_window(offset_xy=(offx,offy))
         if all or points_window:
             tib = title
             if tib is not None and tib.endswith("-"):
@@ -1185,10 +1374,10 @@ class BrailleDisplay:
         prefix += f" {item_id}:"
         if canvas is None:
             canvas = self.rt_canvas
-        canvas_item = canvas.find_withtag(item_id)
+        canvas_items = canvas.find_withtag(item_id)
 
         
-        opts_keys = canvas_item.keys() 
+        opts_keys = canvas_items.keys() 
         for key in opts_keys:
             self.show_canvas_item_opt(key, canvas=canvas,
                                       prefix=prefix)
@@ -1267,7 +1456,7 @@ class BrailleDisplay:
         return cnf
                         
     def overlay_braille_window(self, dst_canvas=None, tk_canvas=None,
-                               show_points=False):
+                               show_points=False, offset_xy=None):
         """ Overlay braille markings on given canvas
             Can be a blank canvas or can be the tk_canvas. Will ignore all
             existing annotation items such as braille cells
@@ -1277,7 +1466,10 @@ class BrailleDisplay:
                     default: self.rt_canvas
         :show_points: display (estimated) sample points from canvas
                     default: False - no sample points
+        :offset_xy: display offset
+                    default: No offset
         """
+        SlTrace.lg("\noverlay_braille_window")
         if tk_canvas is None:
             tk_canvas = self.rt_canvas
         if dst_canvas is None:
@@ -1289,47 +1481,46 @@ class BrailleDisplay:
         for ix in range(self.grid_width):
             for iy in range(self.grid_height):
                 cx1,cy1,cx2,cy2 = self.get_cell_ullr_win(ix=ix, iy=iy)
-                items_over_raw = tk_canvas.find_overlapping(cx1,cy1,cx2,cy2)
-                items_over = []
-                for item in items_over_raw:
-                    if item not in annotated_set:
-                        items_over.append(item)     # Look at nonannotated
+                SlTrace.lg(f"{ix},{iy}: win rec: {cx1},{cy1}, {cx2},{cy2}")
+                items_over = self.find_overlapping(tk_canvas, cx1,cy1, cx2,cy2)
                 folp_str = f"ix:{ix}, iy:{iy} canvas.find_overlapping(cx1={cx1},cy1={cy1},cx2={cx2},cy2={cy2})"
                 if len(items_over) > 0:
                     top_item = items_over[-1]
-                    canvas_item = top_item
-                    itype = tk_canvas.type(canvas_item)
+                    canvas_id = top_item
+                    itype = tk_canvas.type(canvas_id)
                     ###if False and itype != "line": # TFD
                     ###    continue
-                    color_tuple = tk_canvas.itemconfigure(canvas_item, "fill")
+                    color_tuple = tk_canvas.itemconfigure(canvas_id, "fill")
                     color = color_tuple[-1]
                     if color == "":
                         color = self._color
                     point_win = (cx1+cx2)/2,(cy1+cy2)/2
                     point_tur = self.cvt_win_pt_to_tur(point_win)
-                    SlTrace.lg(f"{folp_str} item:{canvas_item} {color}")
+                    SlTrace.lg(f"{folp_str} item:{canvas_id} {color}")
                     SlTrace.lg(f"    point:{point_tur} color={color}"
-                               f" coords:{tk_canvas.coords(canvas_item)}", "point")
-                    self.update_cell(braille_cells=braille_cells,
+                               f" coords:{tk_canvas.coords(canvas_id)}", "point")
+                    cell = self.update_cell(braille_cells=braille_cells,
                                      pt=point_tur, color=color,
-                                      canvas_item=canvas_item)
-        for cell_ixy in braille_cells:
-            self.display_cell(braille_cells[cell_ixy],
+                                      canvas_id=canvas_id)
+                    SlTrace.lg(f"overlay cell:{cell}")
+        for cell_ixiy in braille_cells:    
+            braille_cells[cell_ixiy].display(
                               canvas = dst_canvas,
-                              show_points=show_points)
+                              show_points=show_points,
+                              offset_xy=offset_xy)
             
                         
     def overlay_tk_window(self, canvas):
         """ Overlay a copy of tk window on given canvas
         """
         tk_canvas = self.rt_canvas
-        tk_canvas = self.rt_canvas
-        tk_canvas_items = sorted(tk_canvas.find_all())
-        for item_tag in tk_canvas_items:
+        tk_canvas_ids = sorted(tk_canvas.find_all())
+        for item_tag in tk_canvas_ids:
             itemType, args, kw = self.get_tk_create_args(tk_canvas, item_tag)
             if itemType == "image":
                 continue                # ignore
             canvas._create(itemType, args, kw)
+            self.mw.update()
                         
     def display_tk_window_copy(self, title=None):
         """ Display a copy of tk window
@@ -1339,7 +1530,7 @@ class BrailleDisplay:
             title += " tk_window_copy"
         mw.title(title)
         tk_cnf = self.get_cnf()
-        canvas = tk.Canvas(mw, cnf=tk_cnf)
+        canvas = CanvasView(mw, cnf=tk_cnf)
         canvas.config(width=self.win_width,
                       height=self.win_height)
         canvas.pack()
@@ -1350,9 +1541,9 @@ class BrailleDisplay:
         if title is not None:
             SlTrace.lg(title)
         tk_canvas = self.rt_canvas
-        tk_canvas_items = sorted(tk_canvas.find_all())
+        tk_canvas_ids = sorted(tk_canvas.find_all())
         SlTrace.lg("tk_window_copy tags")
-        for item_tag in tk_canvas_items:
+        for item_tag in tk_canvas_ids:
             itemType, args, kw = self.get_tk_create_args(tk_canvas, item_tag)
             if itemType == "image":
                 continue                # ignore
@@ -1368,7 +1559,7 @@ class BrailleDisplay:
             title += " tk_window_selected"
         mw.title(title)
         tk_cnf = self.get_cnf()
-        canvas = tk.Canvas(mw, cnf=tk_cnf)
+        canvas = CanvasView(mw, cnf=tk_cnf)
         canvas.pack()
         canvas.config(width=self.win_width,
                       height=self.win_height)
@@ -1393,7 +1584,7 @@ class BrailleDisplay:
         """
         
     
-    
+    '''
     def display_cell(self, cell, canvas=None, show_points=False):
         """ Display cell
         :cell: BrailleCell
@@ -1402,65 +1593,22 @@ class BrailleDisplay:
         :show_points: show points instead of braille
                 default: False --> show braille dots
         """
-        ix = cell.ix
-        iy = cell.iy 
-        if canvas is None:
-            canvas = self.braille_canvas
-        cx1,cy1,cx2,cy2 = self.get_cell_ullr_win(ix=ix, iy=iy)
-        canvas.create_rectangle(cx1,cy1,cx2,cy2,
-                                tags=self.annotate_tag)
-        
-        color = self.color_str(cell._color)
-        if show_points:
-            dot_size = 1            # Display cell points
-            dot_radius = dot_size//2
-            if dot_radius < 1:
-                dot_radius = 1
-                dot_size = 2
-            for pt in cell.points:
-                dx,dy = self.cvt_tur_pt_to_win(pt)
-                x0 = dx-dot_radius
-                y0 = dy+dot_size 
-                x1 = dx+dot_radius 
-                y1 = dy
-                canvas.create_oval(x0,y0,x1,y1, fill=color,
-                                                tags=self.annotate_tag)
-            self.braille_mw.update()    # So we can see it now 
-            return
-            
-        dots = cell.dots
-        grid_width = cx2-cx1
-        grid_height = cy1-cy2       # y increases down
-        # Fractional offsets from lower left corner
-        # of cell rectangle
-        ll_x = cx1      # Lower left corner
-        ll_y = cy2
-        ox1 = ox2 = ox3 = .3 
-        ox4 = ox5 = ox6 = .7
-        oy1 = oy4 = .15
-        oy2 = oy5 = .45
-        oy3 = oy6 = .73
-        dot_size = .25*grid_width   # dot size fraction
-        dot_radius = dot_size//2
-        dot_offset = {1: (ox1,oy1), 4: (ox4,oy4),
-                      2: (ox2,oy2), 5: (ox5,oy5),
-                      3: (ox3,oy3), 6: (ox6,oy6),
-                      }
-        for dot in dots:
-            offsets = dot_offset[dot]
-            off_x_f, off_y_f = offsets
-            dx = ll_x + off_x_f*grid_width
-            dy = ll_y + off_y_f*grid_height
-            x0 = dx-dot_radius
-            y0 = dy+dot_size 
-            x1 = dx+dot_radius 
-            y1 = dy
-            canvas.create_oval(x0,y0,x1,y1, fill=color, 
-                                tags=self.annotate_tag)
+        cell.display(canvas=canvas, show_points=show_points)
+    '''
 
     def update(self):
         self.mw.update()
-                
+
+    def get_cell_ullr_win_disp(self, ix, iy): 
+        """ display output conversion
+        """
+        w_left_x,w_upper_y, w_right_x,w_lower_y = self.get_cell_ullr_win(ix, iy)
+###        w_upper_y = (self.win_height - w_upper_y) + self.win_height/2
+###        w_lower_y = (self.win_height - w_lower_y) + self.win_height/2
+        w_upper_y = (self.win_height - w_upper_y)
+        w_lower_y = (self.win_height - w_lower_y)
+        return (w_left_x,w_upper_y, w_right_x,w_lower_y)
+                       
     def get_cell_ullr_win(self, ix, iy):
         """ Get cell's window rectangle x, y  upper left, x,  y lower right
         :ix: cell x index
@@ -1619,35 +1767,47 @@ class BrailleDisplay:
                 
     def end_fill(self):
         self.rtu.end_fill()
+
+    def hideturtle(self):
+        self.rtu.hideturtle()
+        
+    def showturtle(self):
+        self.rtu.showturtle()
     
+    def isvisible(self):
+        return self.rtu.isvisisble()
+            
     def forward(self, length):
         """ Make step forward, updating location
         """
         self.forward_pre(length)
-        self.rtu.forward(length)
+        self.rtu.forward(endlength)
         self.forward_post(length) 
     
     def goto(self, x, y=None):
+        """ mimic turtle rtu without explicit goto call
+        because explicit goto appears to mess up tkinter
+        coordinates by direct canvas.create_line() calls
+        """
         self.goto_pre(x,y)
-        #convert to canvas x,y
-        '''
-        w_x = self.cvt_tur_x_to_win(x) 
-        if y is None:
-            w_y = None 
-        else:
-            w_y = self.cvt_tur_y_to_win(y)
-            w_y -= self.win_height
-        self.rtu.goto(w_x,w_y)
-        '''
-        '''
-        x = x + self.x_max/2 + 1*(self.cell_xs[1]-self.cell_xs[0])          # Fudge
-        y = y + self.y_min/2 - 2*(self.cell_ys[1]-self.cell_ys[0])          # Fudge
-        '''
-        ''''''
-        x += self.x_max/2 + 10*(self.cell_xs[1]-self.cell_xs[0])
-        y -= (self.y_max/2 + 4*(self.cell_ys[1]-self.cell_ys[0]))
-        '''''' 
-        self.rtu.goto(x,y)
+        color = self.rtu.pencolor()
+        width = self.rtu.pensize()
+        isdown = self.rtu.isdown()
+        cur_x, cur_y = self.rtu.position()
+        
+        if isdown:
+            canvas = self.rt_canvas
+            win_cur_x, win_cur_y = self.cvt_tur_pt_to_win((cur_x,cur_y))
+            win_x,win_y = self.cvt_tur_pt_to_win((x,y))
+            canvas.create_line(win_cur_x, win_cur_y, win_x, win_y,
+                               fill=color, width=width)
+        if isdown:
+            self.rtu.penup()
+        self.rtu.setposition(x,y)
+        if isdown:
+            self.rtu.pendown()
+        self.mw.update()
+        
         self.goto_post(x,y) 
 
     # tracking
@@ -1726,8 +1886,7 @@ class BrailleDisplay:
             self.show_canvas_item(item_id, prefix=prefix)
         
     def heading(self):
-        rt = self.rtu.heading()
-        return rt 
+        self.rtu.heading()
             
     def setpos(self, x, y=None):
         return self.goto(x, y=y) 
@@ -1736,7 +1895,10 @@ class BrailleDisplay:
     
     def left(self, angle):
         self.rtu.left(angle)
-    
+
+    def onclick(self, fun, btn=1, add=None):
+        self.rtu.onclick(fun, btn=btn, add=add)
+            
     def pendown(self):
         self.rtu.pendown()
     
@@ -1757,17 +1919,16 @@ class BrailleDisplay:
         return self.rtu.speed(speed)
     
     def mainloop(self):
-        return self.screen.mainloop()
+        self.screen.mainloop()
     def done(self):
-        return self.mainloop()
+        self.mainloop()
     
     def pensize(self, width=None):
         rt = self.rtu.pensize(width=width)
         return rt
 
     def clear(self):
-        rt = self.screen.clear()
-        return rt
+        self.screen.clear()
     
     def reset(self):
         rt = self.screen.reset()
@@ -1796,7 +1957,9 @@ class BrailleDisplay:
             
     def width(self, width=None):
         return self.pensize(width=width)
-
+    
+    def write(self, arg, move=None, align=None, font=None):
+        self.rtu.write(arg, move=move, align=align, font=font)
         
 if __name__ == "__main__":
     import braille_display_test_2
