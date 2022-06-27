@@ -62,8 +62,7 @@ Main display works but no change
 
 #### Implementing goto with direct tkinter calls
 ##### goto routine
-```
-    
+```    
     def goto(self, x, y=None):
         """ mimic turtle rtu without explicit goto call
         because explicit goto appears to mess up tkinter
@@ -92,13 +91,34 @@ Main display works but no change
 ```
 ##### Results
 ###### Simple display of results
+####### 4 Square display including Braille Overlay wich down to right
+![](Docs/four_square_with_braille_overlay_offset.PNG)
+
+Some of the numbers displayed in black are annotations of interesting features.
+The code creating the annotations within the squares is, with description added to right:
+```
+    bw.write(f"[ix:{ix}, iy:{iy}]", align="center", font=font)      ### Braille cell indexes
+    mx, my = new_line(mx,my, ch_h = csize+2)
+    bw.write(f"tu:({tu_x1}, {tu_y1}   {tu_x2}, {tu_y2})", align="center", font=font)   ### cell turtle coordinates
+    mx, my = new_line(mx,my, ch_h = csize+2)
+    bw.write(f"in tu:({x1}, {y1}   {x2}, {y2})", align="center", font=font)         ### inset to keep items inside
+    mx, my = new_line(mx,my, ch_h = csize+2)
+    bw.write(f"win:({w_x1}, {w_y1}   {w_x2}, {w_y2})", align="center", font=font)   ### Window(canvas) coords of squares
+    mx, my = new_line(mx,my, ch_h = csize+2)
+    overlapping = bw.find_overlapping(None, w_x1,w_y1,w_x2,w_y2, 
+                                      include_annotations=True)
+    bw.write(f"overlap:({overlapping})", align="center", font=font)                 ### overlapping items
+            
+    bw.goto(mx,my)
+
+```
+Some other marks outside the squares are displays of Braille Cell index, and the canvas id found via findoverlapping call - e.g. for the lower left green square, indexes: 1,1, canvas id: 40.
+
 ####### 4 Square display including Braille Overlay
-![Incorrect Display](Docs/.PNG)
-####### 4 Square display including Braille Overlay
-![Incorrect Display](Docs/.PNG)
+![](Docs/four_square_with_braille_window.PNG)
 
 ###### Summary
-Can't get past some subtle turtle / tkinter interaction
+Some improvements but we can't get past some subtle turtle / tkinter interaction
 
 #### Supporting Software
 ##### CanvasView (resource_lib/src/canvas_view.py)
