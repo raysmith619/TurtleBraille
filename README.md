@@ -92,6 +92,10 @@ Main display works but no change
 ```
 ##### Results
 ###### Simple display of results
+####### 4 Square display including Braille Overlay
+![Incorrect Display](Docs/.PNG)
+####### 4 Square display including Braille Overlay
+![Incorrect Display](Docs/.PNG)
 
 ###### Summary
 Can't get past some subtle turtle / tkinter interaction
