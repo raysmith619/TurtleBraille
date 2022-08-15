@@ -1,5 +1,6 @@
 # TurtleBraille
-Migrating from resource_lib/turtle_braille/ to Canvas "Scraping" to generate Braille from intercepting each Turtle command and building as set of points to convert.  The rationalle is to avoid an intimite understanding of each Turtle command and its translation into tkinter commands.
+We are migrating from generating braille via direct imitating turtle commands (resource_lib/src/*braille*/) to Canvas "Scraping". The older method intercepts each Turtle command and builds a set of points which are used to create the list of braille cells.  The target method directs most graphic calls directly to their turtle counter parts creating the associated tkinter canvas items with no additional processing. After all graphic calls are processed, the candidate Braille cell regions of the canvas are checked for object overlap. Regions that have overlapping items are used to generate visible Braille cells.  
+Our rationalle is to avoid an intimite understanding of each Turtle command and its translation into tkinter commands.  The Canvas "Scrapping" method may also facilitate post processing magnification or other scale changes.
 # NOTE - in construction
 Not functional yet - scaling problems
 ## Example
